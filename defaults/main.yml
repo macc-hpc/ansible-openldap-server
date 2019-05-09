@@ -1,0 +1,17 @@
+---
+
+openldap:
+  accessdb: /var/lib/ldap/access
+  logs: /var/log/ldap
+  basedn: dc=example,dc=pt
+  ca: ''
+  cert: ''
+  key: ''
+  maindb: /var/lib/ldap/main
+  packages:
+    - openldap-servers
+    - openldap-clients
+  password: '{SSHA}HN6rNCshmBZPGC4V7WTpwo3Ca4sItrQa'
+  rootdn: cn=manager,dc=example,dc=pt
+  schemas: /etc/openldap/schema
+  tls: yes

@@ -1,0 +1,95 @@
+---
+
+- name: Ansible Database Exists
+  stat:
+    path: "{{ openldap.maindb }}/data.mdb"
+  register: maindb
+
+- name: Install OpenLDAP Server and Tools
+  yum:
+    pkg: "{{ openldap.packages }}"
+  tags: openldap
+
+- name: Stop LDAP Service
+  service:
+    name: slapd
+    state: stopped
+  tags: openldap
+
+- name: Create Directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: ldap
+    group: ldap
+    mode: 0700
+  loop:
+    - "{{ openldap.maindb }}"
+    - "{{ openldap.accessdb }}"
+    - "{{ openldap.logs }}"
+  tags: openldap
+
+- name: Copy Additional Schema Files
+  copy:
+    src: "{{ item }}"
+    dest: "{{ openldap.schemas }}/{{ item }}"
+  loop:
+    - autofs.ldif
+    - ldapns.ldif
+    - openssh-lpk.ldif
+    - sudo.ldif
+  tags: openldap
+
+- name: Copy Configuration Template
+  template:
+    src: slapd.conf
+    dest: /tmp/slapd.conf
+    mode: 0644
+    owner: ldap
+  when: not maindb.stat.exists
+  tags: openldap
+
+- name: Copy Certificates
+  copy:
+    content: "{{ item.content }}"
+    dest: "/etc/ssl/{{ item.dest }}"
+    mode: 0600
+    owner: ldap
+    group: ldap
+  loop:
+    - { content: "{{ openldap.ca }}", dest: openldap-server.ca }
+    - { content: "{{ openldap.cert }}", dest: openldap-server.cert }
+    - { content: "{{ openldap.key }}", dest: openldap-server.key }
+  when: openldap.tls
+  tags: openldap
+
+- name: Remove Previous Slapd Configuration
+  file:
+    path: "/etc/openldap/slapd.d/{{ item }}"
+    state: absent
+  loop:
+    - cn=config
+    - cn=config.ldif
+  when: not maindb.stat.exists
+  tags: openldap
+
+- name: Make it Happen
+  become: yes
+  become_user: ldap
+  shell: cat /tmp/slapd.conf | slapadd -F /etc/openldap/slapd.d -v -n 0
+  args:
+    creates: "{{ openldap.maindb }}/data.mdb"
+  tags: openldap
+
+- name: Cleanup
+  file:
+    path: /tmp/slapd.conf
+    state: absent
+  tags: openldap
+
+- name: Start and Enable LDAP Service
+  service:
+    name: slapd
+    state: started
+    enabled: yes
+  tags: openldap
