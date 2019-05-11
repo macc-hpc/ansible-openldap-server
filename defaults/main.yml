@@ -1,17 +1,18 @@
 ---
 
-openldap:
-  accessdb: /var/lib/ldap/access
-  logs: /var/log/ldap
-  basedn: dc=example,dc=pt
+openldap_accessdb: /var/lib/ldap/access
+openldap_logs: /var/log/ldap
+openldap_basedn: dc=example,dc=pt
+openldap_maindb: /var/lib/ldap/main
+openldap_packages:
+  - openldap-servers
+  - openldap-clients
+  - policycoreutils-python
+openldap_password: '{SSHA}HN6rNCshmBZPGC4V7WTpwo3Ca4sItrQa'
+openldap_rootdn: cn=manager,dc=example,dc=pt
+openldap_schemas: /etc/openldap/schema
+openldap_tls:
   ca: ''
   cert: ''
+  enabled: no
   key: ''
-  maindb: /var/lib/ldap/main
-  packages:
-    - openldap-servers
-    - openldap-clients
-  password: '{SSHA}HN6rNCshmBZPGC4V7WTpwo3Ca4sItrQa'
-  rootdn: cn=manager,dc=example,dc=pt
-  schemas: /etc/openldap/schema
-  tls: yes

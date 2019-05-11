@@ -1,22 +1,23 @@
 ---
 
-- name: Ansible Database Exists
+- name: check if database exists
   stat:
-    path: "{{ openldap.maindb }}/data.mdb"
+    path: "{{ openldap_maindb }}/data.mdb"
   register: maindb
-
-- name: Install OpenLDAP Server and Tools
-  yum:
-    pkg: "{{ openldap.packages }}"
   tags: openldap
 
-- name: Stop LDAP Service
+- name: install openldap server and tools
+  yum:
+    pkg: "{{ openldap_packages }}"
+  tags: openldap
+
+- name: stop ldap service
   service:
     name: slapd
     state: stopped
   tags: openldap
 
-- name: Create Directories
+- name: create directories
   file:
     path: "{{ item }}"
     state: directory
@@ -24,15 +25,32 @@
     group: ldap
     mode: 0700
   loop:
-    - "{{ openldap.maindb }}"
-    - "{{ openldap.accessdb }}"
-    - "{{ openldap.logs }}"
+    - "{{ openldap_maindb }}"
+    - "{{ openldap_accessdb }}"
+    - "{{ openldap_logs }}"
   tags: openldap
 
-- name: Copy Additional Schema Files
+- name: play nice with SELinux
+  sefcontext:
+    target: "{{ item }}(/.*)?"
+    setype: slapd_db_t
+    state: present
+  loop:
+    - "{{ openldap_maindb }}"
+    - "{{ openldap_accessdb }}"
+  tags: openldap
+
+- name: apply new SELinux file context to filesystem
+  command: restorecon -irv "{{ item }}"
+  loop:
+    - "{{ openldap_maindb }}"
+    - "{{ openldap_accessdb }}"
+  tags: openldap
+
+- name: copy additional schema files
   copy:
     src: "{{ item }}"
-    dest: "{{ openldap.schemas }}/{{ item }}"
+    dest: "{{ openldap_schemas }}/{{ item }}"
   loop:
     - autofs.ldif
     - ldapns.ldif
@@ -40,7 +58,7 @@
     - sudo.ldif
   tags: openldap
 
-- name: Copy Configuration Template
+- name: copy configuration template
   template:
     src: slapd.conf
     dest: /tmp/slapd.conf
@@ -49,7 +67,7 @@
   when: not maindb.stat.exists
   tags: openldap
 
-- name: Copy Certificates
+- name: copy certificates
   copy:
     content: "{{ item.content }}"
     dest: "/etc/ssl/{{ item.dest }}"
@@ -57,13 +75,14 @@
     owner: ldap
     group: ldap
   loop:
-    - { content: "{{ openldap.ca }}", dest: openldap-server.ca }
-    - { content: "{{ openldap.cert }}", dest: openldap-server.cert }
-    - { content: "{{ openldap.key }}", dest: openldap-server.key }
-  when: openldap.tls
+    - { content: "{{ openldap_tls.ca }}", dest: openldap-server.ca }
+    - { content: "{{ openldap_tls.cert }}", dest: openldap-server.cert }
+    - { content: "{{ openldap_tls.key }}", dest: openldap-server.key }
+  no_log: true
+  when: openldap_tls.enabled
   tags: openldap
 
-- name: Remove Previous Slapd Configuration
+- name: remove previous slapd configuration
   file:
     path: "/etc/openldap/slapd.d/{{ item }}"
     state: absent
@@ -73,23 +92,22 @@
   when: not maindb.stat.exists
   tags: openldap
 
-- name: Make it Happen
-  become: yes
+- name: make it happen
   become_user: ldap
   shell: cat /tmp/slapd.conf | slapadd -F /etc/openldap/slapd.d -v -n 0
   args:
-    creates: "{{ openldap.maindb }}/data.mdb"
+    creates: "{{ openldap_maindb }}/data.mdb"
   tags: openldap
 
-- name: Cleanup
+- name: cleanup
   file:
     path: /tmp/slapd.conf
     state: absent
   tags: openldap
 
-- name: Start and Enable LDAP Service
+- name: start and enable slapd service
   service:
     name: slapd
-    state: started
+    state: restarted
     enabled: yes
   tags: openldap
