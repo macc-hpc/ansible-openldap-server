@@ -93,8 +93,11 @@
   tags: openldap
 
 - name: make it happen
+  become: yes
   become_user: ldap
-  shell: cat /tmp/slapd.conf | slapadd -F /etc/openldap/slapd.d -v -n 0
+  shell: |
+    set -o pipefail
+    cat /tmp/slapd.conf | slapadd -F /etc/openldap/slapd.d -v -n 0
   args:
     creates: "{{ openldap_maindb }}/data.mdb"
   tags: openldap
