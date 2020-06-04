@@ -51,6 +51,7 @@
   copy:
     src: "{{ item }}"
     dest: "{{ openldap_schemas }}/{{ item }}"
+    mode: 0644
   loop:
     - autofs.ldif
     - ldapns.ldif
